@@ -10,6 +10,8 @@ namespace OmniFarm
         ** Accessors
         *********/
         public bool useOptionalCave { get; set; } = false;
+
+        public bool addFarmMinecartDest { get; set; } = true;
         
         public int GrassGrowth_1forsparse_4forFull = 4;
 
@@ -45,7 +47,6 @@ namespace OmniFarm
         public Vector2 WarpFromBackWood { get; set; } = new Vector2(-1, -1);
 
         public Vector2 WarpFromBusStop { get; set; } = new Vector2(-1, -1);
-
 
         /*********
         ** Public methods

@@ -1,21 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using StardewModdingAPI;
+using StardewModdingAPI.Events;
 using StardewValley;
+using StardewValley.GameData.Minecarts;
+using StardewValley.ItemTypeDefinitions;
 using StardewValley.Locations;
 using StardewValley.TerrainFeatures;
+using xTile;
 using SObject = StardewValley.Object;
 
 namespace OmniFarm
 {
-    public class OmniFarm : Mod, IAssetLoader
+    public class OmniFarm : Mod
     {
         /*********
         ** Fields
         *********/
         private OmniFarmConfig Config;
-
+        private MinecartDestinationData FarmDestination;
 
         /*********
         ** Public methods
@@ -25,39 +30,50 @@ namespace OmniFarm
         public override void Entry(IModHelper helper)
         {
             Config = helper.ReadConfig<OmniFarmConfig>();
+            FarmDestination = CreateFarmDestination();
 
+            helper.Events.Content.AssetRequested += OnAssetRequested;
+            if (Config.addFarmMinecartDest)
+                helper.Events.Content.AssetReady += OnAssetReady;
             helper.Events.GameLoop.DayStarted += OnDayStarted;
         }
-
-        /// <summary>Get whether this instance can load the initial version of the given asset.</summary>
-        /// <param name="asset">Basic metadata about the asset being loaded.</param>
-        public bool CanLoad<T>(IAssetInfo asset)
-        {
-            return
-                asset.AssetNameEquals(@"Maps\Farm_Combat")
-                || (Config.useOptionalCave && asset.AssetNameEquals(@"Maps\FarmCave"));
-        }
-
-        /// <summary>Load a matched asset.</summary>
-        /// <param name="asset">Basic metadata about the asset being loaded.</param>
-        public T Load<T>(IAssetInfo asset)
-        {
-            if (asset.AssetNameEquals(@"Maps\Farm_Combat"))
-                return this.Helper.Content.Load<T>(@"assets\Farm_Combat.tbin");
-            if (asset.AssetNameEquals(@"Maps\FarmCave"))
-                return this.Helper.Content.Load<T>(@"assets\FarmCave.tbin");
-            throw new NotSupportedException($"Unknown asset {asset.AssetName}");
-        }
-
 
         /*********
         ** Private methods
         *********/
+        /// <inheritdoc cref="IContentEvents.AssetRequested" />
+        /// <param name="sender">The event sender.</param>
+        /// <param name="e">The event arguments.</param>
+        private void OnAssetRequested(object sender, AssetRequestedEventArgs e)
+        {
+            if (e.Name.IsEquivalentTo(@"Maps\Farm_Combat"))
+                e.LoadFromModFile<xTile.Map>(@"assets\Farm_OmniFarm.tmx", AssetLoadPriority.Exclusive);
+            if (e.Name.IsEquivalentTo(@"Maps\FarmCave") && Config.useOptionalCave)
+                e.LoadFromModFile<xTile.Map>(@"assets\FarmCave_OmniFarm.tmx", AssetLoadPriority.Exclusive);
+            if (e.Name.IsEquivalentTo(@"Data\Minecarts") && Config.addFarmMinecartDest)
+                e.Edit(EditMinecartsData);
+        }
+
+        /// <inheritdoc cref="IContentEvents.AssetReady"/>
+        /// <param name="sender">The event sender.</param>
+        /// <param name="e">The event arguments.</param>
+        private void OnAssetReady(object sender, AssetReadyEventArgs e)
+        {
+            if (Game1.whichFarm != Farm.combat_layout)
+                return;
+
+            // Ensure Minecart data is always reloaded, so that the Farm location can be dynamically added
+            // depending on the current location.
+            if (e.Name.IsEquivalentTo(@"Data\Minecarts") && Config.addFarmMinecartDest)
+                this.Helper.GameContent.InvalidateCache(@"Data\Minecarts");
+        }
+
         /// <summary>Raised after the game begins a new day (including when the player loads a save).</summary>
         /// <param name="sender">The event sender.</param>
         /// <param name="e">The event data.</param>
         private void OnDayStarted(object sender, EventArgs e)
         {
+            
             if (Game1.whichFarm == Farm.combat_layout)
             {
                 ChangeWarpPoints();
@@ -192,6 +208,47 @@ namespace OmniFarm
             }
         }
 
+        /// <summary>
+        /// Constructs the Farm's minecart destination data.
+        /// </summary>
+        /// <returns></returns>
+        private MinecartDestinationData CreateFarmDestination()
+        {
+            var farm_loc = new MinecartDestinationData();
+
+            farm_loc.Id = "Farm";
+            farm_loc.DisplayName = "Farm";
+            farm_loc.Condition = null;
+            farm_loc.Price = 0;
+            farm_loc.BuyTicketMessage = null;
+            farm_loc.TargetLocation = "Farm";
+            farm_loc.TargetTile.X = 77;
+            farm_loc.TargetTile.Y = 7;
+            farm_loc.TargetDirection = null;
+            farm_loc.CustomFields = null;
+
+            return farm_loc;
+        }
+
+        /// <summary>
+        /// Adds the Farm as a destination on for the Minecart network, if the current location isn't the Farm.
+        /// </summary>
+        /// <param name="asset"></param>
+        private void EditMinecartsData(IAssetData asset)
+        {
+            // Don't edit the data if on the Farm (or if on a different farm type)
+            if (Game1.whichFarm != Farm.combat_layout || Game1.player.currentLocation is Farm)
+            {
+                return;
+            }
+
+            var destinations = asset.AsDictionary<string, MinecartNetworkData>().Data["Default"].Destinations;
+            destinations.Add(this.FarmDestination);
+        }
+
+        /// <summary>
+        /// Updates the farm warp points to the proper coordinates.
+        /// </summary>
         private void ChangeWarpPoints()
         {
             foreach (GameLocation GL in Game1.locations)
@@ -227,7 +284,7 @@ namespace OmniFarm
                 }
 
                 if (Config.WarpFromBusStop.X != -1)
-                {
+                {     
                     if (GL.Name.ToLower().Contains("busstop"))
                     {
                         foreach (Warp w in GL.warps)
@@ -254,23 +311,33 @@ namespace OmniFarm
             }
         }
 
+        private ItemMetadata getObjectMetadata(int id)
+        {
+            return ItemRegistry.GetMetadata(id.ToString());
+        }
+
+        private SObject getObject(int id)
+        {
+            return (SObject)getObjectMetadata(id).CreateItemOrErrorItem();
+        }
+
         private SObject createOre(string oreName, Vector2 tileLocation)
         {
             switch (oreName)
             {
-                case "mysticStone": return new SObject(tileLocation, 46, "Stone", true, false, false, false);
-                case "gemStone": return new SObject(tileLocation, (Game1.random.Next(7) + 1) * 2, "Stone", true, false, false, false);
-                case "diamond": return new SObject(tileLocation, 2, "Stone", true, false, false, false);
-                case "ruby": return new SObject(tileLocation, 4, "Stone", true, false, false, false);
-                case "jade": return new SObject(tileLocation, 6, "Stone", true, false, false, false);
-                case "amethyst": return new SObject(tileLocation, 8, "Stone", true, false, false, false);
-                case "topaz": return new SObject(tileLocation, 10, "Stone", true, false, false, false);
-                case "emerald": return new SObject(tileLocation, 12, "Stone", true, false, false, false);
-                case "aquamarine": return new SObject(tileLocation, 14, "Stone", true, false, false, false);
-                case "iridiumStone": return new SObject(tileLocation, 765, 1);
-                case "goldStone": return new SObject(tileLocation, 764, 1);
-                case "ironStone": return new SObject(tileLocation, 290, 1);
-                case "copperStone": return new SObject(tileLocation, 751, 1);
+                case "mysticStone": return getObject(46);
+                case "gemStone": return getObject((Game1.random.Next(7) + 1) * 2);
+                case "diamond": return getObject(2);
+                case "ruby": return getObject(4);
+                case "jade": return getObject(6);
+                case "amethyst": return getObject(8);
+                case "topaz": return getObject(10);
+                case "emerald": return getObject(12);
+                case "aquamarine": return getObject(14);
+                case "iridiumStone": return getObject(765);
+                case "goldStone": return getObject(764);
+                case "ironStone": return getObject(290);
+                case "copperStone": return getObject(751);
                 default: return null;
             }
         }
@@ -280,7 +347,7 @@ namespace OmniFarm
             for (int i = 0; i < input.Count; i++)
             {
                 ResourceClump RC = input[i];
-                if (RC.tile.Value == tile)
+                if (RC.Tile == tile)
                 {
                     input.RemoveAt(i);
                     i--;
