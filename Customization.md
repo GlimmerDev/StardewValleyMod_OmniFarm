@@ -87,5 +87,9 @@ These are default value:
 + **useOptionalCave**: load custom FarmCave.xnb in ``assets`` folder  
 Default to ``false``
 
+### 6. Add the Farm as a minecart destination
++ **addFarmMinecartDest**: adds "Farm" as a selection on the Minecart destination menu.  
+Default to ``true``
+
 ### 6. Restore Default config values:
 Simply delete `config.json` and relaunch SMAPI.
