@@ -1,6 +1,14 @@
 **OmniFarm** is an mod for Stardew Valley which expands the combat farm map and adds extra
-functionality:  
-![farm image](Omnifarm.png)
+functionality.
+
+**This is a fork of [StardewValleyMod_OmniFarm](https://github.com/lambui/StardewValleyMod_OmniFarm) by lambui.**
+
+## Changes in this fork
+* Updated for SMAPI 4.0 (Stardew Valley 1.6)
+* Converted maps from TBIN -> TMX, and cleaned them up. This includes fixing the tilesheet order, removing invisible (impassible) tiles, etc.
+* The Farm Minecart can now show up in the list of Minecart destinations (can be disabled in the config).
+
+---
 
 ## Install
 1. [Install the latest version of SMAPI](https://smapi.io/).
