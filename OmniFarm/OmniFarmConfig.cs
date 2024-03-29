@@ -28,8 +28,6 @@ namespace OmniFarm
             Tuple.Create(new Vector2(99, 96), new Vector2(115, 108))
         };
 
-        public Vector2[] stumpLocations { get; set; } = GetDefaultStumpLocations();
-
         public Vector2[] hollowLogLocations { get; set; } = GetDefaultLogLocations();
 
         public Vector2[] meteoriteLocations { get; set; } = new Vector2[0];
@@ -42,7 +40,7 @@ namespace OmniFarm
 
         public double gemChance { get; set; } = 0.01;
 
-        public Vector2 WarpFromForest { get; set; } = new Vector2(32, 117);
+        public Vector2 WarpFromForest { get; set; } = new Vector2(-1, -1);
 
         public Vector2 WarpFromBackWood { get; set; } = new Vector2(-1, -1);
 
@@ -51,7 +49,7 @@ namespace OmniFarm
         /*********
         ** Public methods
         *********/
-        public List<Vector2> getMineLocations()
+        public List<Vector2> GetMineLocations()
         {
             var tiles = new List<Vector2>();
             foreach (Tuple<Vector2, Vector2> T in mineAreas)
@@ -59,7 +57,7 @@ namespace OmniFarm
             return tiles;
         }
 
-        public List<Vector2> getGrassLocations()
+        public List<Vector2> GetGrassLocations()
         {
             var tiles = new List<Vector2>();
             foreach (Tuple<Vector2, Vector2> T in grassAreas)
@@ -71,14 +69,6 @@ namespace OmniFarm
         /*********
         ** Private methods
         *********/
-        private static Vector2[] GetDefaultStumpLocations()
-        {
-            List<Vector2> tiles = new List<Vector2>();
-            AddVector2Grid(new Vector2(7, 24), new Vector2(7, 24), ref tiles);
-            AddVector2Grid(new Vector2(9, 26), new Vector2(9, 26), ref tiles);
-            AddVector2Grid(new Vector2(13, 27), new Vector2(13, 27), ref tiles);
-            return tiles.ToArray();
-        }
 
         private static Vector2[] GetDefaultLogLocations()
         {
